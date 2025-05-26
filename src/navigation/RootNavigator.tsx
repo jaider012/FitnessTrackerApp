@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { HomeScreen } from '../screens/home/HomeScreen';
 import { WorkoutListScreen } from '../screens/workout/WorkoutListScreen';
 import { WorkoutDetailScreen } from '../screens/workout/WorkoutDetailScreen';
 import { ExercisesScreen } from '../screens/exercises/ExercisesScreen';
@@ -29,6 +30,7 @@ export type AuthStackParamList = {
 };
 
 export type MainTabParamList = {
+  Home: undefined;
   Workouts: undefined;
   Exercises: undefined;
   Progress: undefined;
@@ -58,7 +60,9 @@ function MainTabNavigator() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
-          if (route.name === 'Workouts') {
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Workouts') {
             iconName = focused ? 'fitness' : 'fitness-outline';
           } else if (route.name === 'Exercises') {
             iconName = focused ? 'barbell' : 'barbell-outline';
@@ -77,6 +81,7 @@ function MainTabNavigator() {
         headerShown: false,
       })}
     >
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Workouts" component={WorkoutListScreen} />
       <Tab.Screen name="Exercises" component={ExercisesScreen} />
       <Tab.Screen name="Progress" component={ProgressScreen} />

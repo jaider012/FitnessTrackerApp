@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ScrollView, Pressable } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, Pressable, View } from 'react-native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import {
   Box,
   VStack,
@@ -8,30 +8,47 @@ import {
   Text,
   Button,
   ButtonText,
-  Input,
-  InputField,
-  Card,
 } from '../../../components/ui/';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { useTimerStore } from '../../store/timerStore';
 import { useAuthStore } from '../../store/authStore';
 import { RestTimer } from '../../components/RestTimer';
+import { ExerciseInput } from '../../components/ui/ExerciseInput';
 import { RootStackParamList } from '../../types';
-import { format, parseISO } from 'date-fns';
+import { theme } from '../../constants/theme';
+import { format, parseISO, differenceInSeconds } from 'date-fns';
 import uuid from 'react-native-uuid';
 
 type WorkoutDetailRouteProp = RouteProp<RootStackParamList, 'WorkoutDetail'>;
 
 export const WorkoutDetailScreen = () => {
   const route = useRoute<WorkoutDetailRouteProp>();
+  const navigation = useNavigation();
   const { workoutId } = route.params;
   const { workouts, updateWorkout } = useWorkoutStore();
   const { startTimer } = useTimerStore();
   const { user } = useAuthStore();
   
   const workout = workouts.find(w => w.id === workoutId);
-  const [editingSet, setEditingSet] = useState<{ exerciseId: string; setId: string } | null>(null);
-  const [tempValues, setTempValues] = useState({ reps: '', weight: '' });
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Start workout timer
+  useEffect(() => {
+    if (workout && !workout.completed && !startTime) {
+      setStartTime(new Date());
+    }
+  }, [workout]);
+
+  // Update elapsed time
+  useEffect(() => {
+    if (startTime && !workout?.completed) {
+      const interval = setInterval(() => {
+        setElapsedTime(differenceInSeconds(new Date(), startTime));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [startTime, workout?.completed]);
 
   if (!workout) {
     return (
@@ -41,14 +58,24 @@ export const WorkoutDetailScreen = () => {
     );
   }
 
-  const handleSetComplete = (exerciseId: string, setId: string) => {
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleUpdateSet = (exerciseId: string, setId: string, updates: any) => {
     const updatedExercises = workout.exercises.map(exercise => {
       if (exercise.id === exerciseId) {
         return {
           ...exercise,
           sets: exercise.sets.map(set => {
             if (set.id === setId) {
-              return { ...set, completed: !set.completed };
+              return { ...set, ...updates };
             }
             return set;
           })
@@ -58,51 +85,6 @@ export const WorkoutDetailScreen = () => {
     });
 
     updateWorkout(workoutId, { exercises: updatedExercises });
-
-    // Start rest timer if set was completed
-    const set = workout.exercises
-      .find(e => e.id === exerciseId)?.sets
-      .find(s => s.id === setId);
-    
-    if (set && !set.completed && user?.preferences.restTimerDuration) {
-      startTimer(user.preferences.restTimerDuration, exerciseId, setId);
-    }
-  };
-
-  const handleEditSet = (exerciseId: string, setId: string) => {
-    const exercise = workout.exercises.find(e => e.id === exerciseId);
-    const set = exercise?.sets.find(s => s.id === setId);
-    
-    if (set) {
-      setTempValues({ reps: set.reps.toString(), weight: set.weight.toString() });
-      setEditingSet({ exerciseId, setId });
-    }
-  };
-
-  const handleSaveSet = () => {
-    if (!editingSet) return;
-
-    const updatedExercises = workout.exercises.map(exercise => {
-      if (exercise.id === editingSet.exerciseId) {
-        return {
-          ...exercise,
-          sets: exercise.sets.map(set => {
-            if (set.id === editingSet.setId) {
-              return {
-                ...set,
-                reps: parseInt(tempValues.reps) || 0,
-                weight: parseFloat(tempValues.weight) || 0,
-              };
-            }
-            return set;
-          })
-        };
-      }
-      return exercise;
-    });
-
-    updateWorkout(workoutId, { exercises: updatedExercises });
-    setEditingSet(null);
   };
 
   const handleAddSet = (exerciseId: string) => {
@@ -127,124 +109,139 @@ export const WorkoutDetailScreen = () => {
     updateWorkout(workoutId, { exercises: updatedExercises });
   };
 
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
+  const handleRemoveSet = (exerciseId: string, setId: string) => {
+    const updatedExercises = workout.exercises.map(exercise => {
+      if (exercise.id === exerciseId) {
+        return {
+          ...exercise,
+          sets: exercise.sets.filter(set => set.id !== setId)
+        };
+      }
+      return exercise;
+    });
+
+    updateWorkout(workoutId, { exercises: updatedExercises });
   };
+
+  const handleStartTimer = () => {
+    if (user?.preferences.restTimerDuration) {
+      startTimer(user.preferences.restTimerDuration);
+    }
+  };
+
+  const handleFinishWorkout = () => {
+    updateWorkout(workoutId, { 
+      completed: true,
+      duration: elapsedTime
+    });
+    navigation.goBack();
+  };
+
+  const handleAddExercise = () => {
+    // TODO: Navigate to exercise selection screen
+    console.log('Add exercise');
+  };
+
+  const totalVolume = workout.exercises.reduce((sum, exercise) => {
+    return sum + exercise.sets.reduce((setSum, set) => {
+      return setSum + (set.completed ? set.weight * set.reps : 0);
+    }, 0);
+  }, 0);
+
+  const completedSets = workout.exercises.reduce((sum, exercise) => {
+    return sum + exercise.sets.filter(set => set.completed).length;
+  }, 0);
+
+  const totalSets = workout.exercises.reduce((sum, exercise) => {
+    return sum + exercise.sets.length;
+  }, 0);
 
   return (
     <Box className="flex-1 bg-gray-50">
-      <ScrollView className="flex-1">
-        <VStack className="p-4 gap-6">
-          {/* Workout Header */}
-          <Card className="p-4">
-            <VStack className="gap-2">
-              <Text className="text-2xl font-bold">{workout.name}</Text>
-              <HStack className="justify-between">
-                <Text className="text-gray-600">
-                  {format(parseISO(workout.date), 'dd/MM/yyyy')}
-                </Text>
-                <Text className="text-gray-600">
-                  {formatDuration(workout.duration)}
-                </Text>
-              </HStack>
-              {workout.completed && (
-                <Text className="text-green-600 font-medium">✓ Completado</Text>
-              )}
+      {/* Header */}
+      <Box className="bg-white border-b border-gray-200 px-4 py-3">
+        <VStack className="gap-2">
+          <HStack className="justify-between items-center">
+            <VStack>
+              <Text className="text-xl font-bold text-gray-900">
+                {workout.name}
+              </Text>
+              <Text className="text-sm text-gray-500">
+                {format(parseISO(workout.date), 'EEEE, d MMMM')}
+              </Text>
             </VStack>
-          </Card>
+            <VStack className="items-end">
+              <Text className="text-2xl font-bold text-blue-600">
+                {formatDuration(workout.completed ? workout.duration : elapsedTime)}
+              </Text>
+              <Text className="text-xs text-gray-500">Duración</Text>
+            </VStack>
+          </HStack>
 
+          {/* Quick Stats */}
+          <HStack className="gap-4 mt-2">
+            <VStack>
+              <Text className="text-lg font-semibold">{completedSets}/{totalSets}</Text>
+              <Text className="text-xs text-gray-500">Series</Text>
+            </VStack>
+            <View className="w-px bg-gray-200" />
+            <VStack>
+              <Text className="text-lg font-semibold">{(totalVolume / 1000).toFixed(1)}k</Text>
+              <Text className="text-xs text-gray-500">kg Total</Text>
+            </VStack>
+          </HStack>
+        </VStack>
+      </Box>
+
+      <ScrollView className="flex-1">
+        <VStack className="p-4 gap-4">
           {/* Exercises */}
           {workout.exercises.map((exercise) => (
-            <Card key={exercise.id} className="p-4">
-              <VStack className="gap-4">
-                <HStack className="justify-between items-center">
-                  <Text className="text-lg font-semibold">{exercise.name}</Text>
-                  <Button size="sm" onPress={() => handleAddSet(exercise.id)}>
-                    <ButtonText>+ Serie</ButtonText>
-                  </Button>
-                </HStack>
-
-                {/* Sets */}
-                <VStack className="gap-2">
-                  {exercise.sets.map((set, index) => (
-                    <HStack key={set.id} className="items-center gap-3 p-2 bg-gray-50 rounded">
-                      <Text className="w-8 text-center font-medium">{index + 1}</Text>
-                      
-                      {editingSet?.setId === set.id ? (
-                        <>
-                          <Input className="flex-1" size="sm">
-                            <InputField
-                              placeholder="Reps"
-                              value={tempValues.reps}
-                              onChangeText={(text) => setTempValues(prev => ({ ...prev, reps: text }))}
-                              keyboardType="numeric"
-                            />
-                          </Input>
-                          <Input className="flex-1" size="sm">
-                            <InputField
-                              placeholder="Peso"
-                              value={tempValues.weight}
-                              onChangeText={(text) => setTempValues(prev => ({ ...prev, weight: text }))}
-                              keyboardType="numeric"
-                            />
-                          </Input>
-                          <Button size="sm" onPress={handleSaveSet}>
-                            <ButtonText>✓</ButtonText>
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Pressable 
-                            className="flex-1"
-                            onPress={() => handleEditSet(exercise.id, set.id)}
-                          >
-                            <Text className="text-center">{set.reps} reps</Text>
-                          </Pressable>
-                          <Pressable 
-                            className="flex-1"
-                            onPress={() => handleEditSet(exercise.id, set.id)}
-                          >
-                            <Text className="text-center">{set.weight} kg</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => handleSetComplete(exercise.id, set.id)}
-                            className={`w-8 h-8 rounded-full border-2 items-center justify-center ${
-                              set.completed 
-                                ? 'bg-green-500 border-green-500' 
-                                : 'border-gray-300'
-                            }`}
-                          >
-                            {set.completed && (
-                              <Text className="text-white text-xs">✓</Text>
-                            )}
-                          </Pressable>
-                        </>
-                      )}
-                    </HStack>
-                  ))}
-                </VStack>
-
-                {exercise.notes && (
-                  <Text className="text-sm text-gray-600 italic">
-                    Notas: {exercise.notes}
-                  </Text>
-                )}
-              </VStack>
-            </Card>
+            <ExerciseInput
+              key={exercise.id}
+              exerciseName={exercise.name}
+              sets={exercise.sets}
+              onUpdateSet={(setId, updates) => handleUpdateSet(exercise.id, setId, updates)}
+              onAddSet={() => handleAddSet(exercise.id)}
+              onRemoveSet={(setId) => handleRemoveSet(exercise.id, setId)}
+              onStartTimer={handleStartTimer}
+            />
           ))}
 
-          {workout.notes && (
-            <Card className="p-4">
-              <VStack className="gap-2">
-                <Text className="font-semibold">Notas del entrenamiento</Text>
-                <Text className="text-gray-600">{workout.notes}</Text>
-              </VStack>
-            </Card>
+          {/* Add Exercise Button */}
+          <Pressable
+            onPress={handleAddExercise}
+            className="bg-white rounded-xl p-4 border-2 border-dashed border-gray-300"
+          >
+            <HStack className="items-center justify-center gap-2">
+              <Text className="text-2xl text-gray-400">+</Text>
+              <Text className="text-gray-600 font-medium">
+                Añadir Ejercicio
+              </Text>
+            </HStack>
+          </Pressable>
+
+          {/* Notes Section */}
+          <Box className="bg-white rounded-xl p-4" style={theme.shadows.sm}>
+            <VStack className="gap-3">
+              <Text className="font-semibold text-gray-900">Notas del Entrenamiento</Text>
+              <Pressable className="bg-gray-50 rounded-lg p-3">
+                <Text className="text-gray-500">
+                  {workout.notes || 'Toca para añadir notas...'}
+                </Text>
+              </Pressable>
+            </VStack>
+          </Box>
+
+          {/* Finish Workout Button */}
+          {!workout.completed && (
+            <Button
+              onPress={handleFinishWorkout}
+              className="mt-6 mb-8"
+              size="lg"
+            >
+              <ButtonText>Finalizar Entrenamiento</ButtonText>
+            </Button>
           )}
         </VStack>
       </ScrollView>

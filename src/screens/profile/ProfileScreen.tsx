@@ -219,7 +219,7 @@ export const ProfileScreen = () => {
             </HStack>
           </VStack>
         </Card>
-
+        
         {/* Logout */}
         <Button 
           variant="outline" 

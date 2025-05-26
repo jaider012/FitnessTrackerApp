@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
-import { FlatList, ScrollView, Pressable } from 'react-native';
-import { Box, VStack, HStack, Text, Button, ButtonText, Card } from '../../../components/ui/';
+import { FlatList, ScrollView, View } from 'react-native';
+import { Box, VStack, HStack, Text, Button, ButtonText } from '../../../components/ui/';
 import { useWorkoutStore, Workout } from '../../store/workoutStore';
 import { useNavigation } from '@react-navigation/native';
 import { createSampleWorkouts } from '../../utils/sampleData';
-import { format, parseISO } from 'date-fns';
+import { WorkoutCard } from '../../components/ui/WorkoutCard';
+import { StatDisplay } from '../../components/ui/StatDisplay';
+import { theme } from '../../constants/theme';
 import uuid from 'react-native-uuid';
 
 export const WorkoutListScreen = () => {
@@ -42,35 +44,10 @@ export const WorkoutListScreen = () => {
   };
 
   const renderWorkout = ({ item }: { item: Workout }) => (
-    <Pressable
+    <WorkoutCard
+      workout={item}
       onPress={() => navigation.navigate('WorkoutDetail', { workoutId: item.id })}
-      className="mb-3"
-    >
-      <Card className="p-4">
-        <VStack className="gap-2">
-          <HStack className="justify-between items-center">
-            <Text className="font-bold text-lg">{item.name}</Text>
-            {item.completed && (
-              <Text className="text-green-600 text-sm">✓ Completado</Text>
-            )}
-          </HStack>
-          <HStack className="justify-between items-center">
-            <Text className="text-sm text-gray-600">
-              {item.exercises.length} ejercicios
-              {item.duration > 0 && ` • ${formatDuration(item.duration)}`}
-            </Text>
-            <Text className="text-sm text-gray-500">
-              {format(parseISO(item.date), 'dd/MM/yyyy')}
-            </Text>
-          </HStack>
-          {item.notes && (
-            <Text className="text-sm text-gray-500 italic" numberOfLines={1}>
-              {item.notes}
-            </Text>
-          )}
-        </VStack>
-      </Card>
-    </Pressable>
+    />
   );
 
   return (
@@ -86,37 +63,35 @@ export const WorkoutListScreen = () => {
 
         {/* Quick Stats */}
         {workouts.length > 0 && (
-          <Card className="p-4 mb-6">
-            <HStack className="justify-between">
-              <VStack className="items-center">
-                <Text className="text-xl font-bold text-blue-600">
-                  {workouts.filter(w => w.completed).length}
-                </Text>
-                <Text className="text-sm text-gray-600">Completados</Text>
-              </VStack>
-              <VStack className="items-center">
-                <Text className="text-xl font-bold text-green-600">
-                  {workouts.filter(w => {
-                    const today = new Date();
-                    const workoutDate = new Date(w.date);
-                    return workoutDate.toDateString() === today.toDateString() && w.completed;
-                  }).length}
-                </Text>
-                <Text className="text-sm text-gray-600">Hoy</Text>
-              </VStack>
-              <VStack className="items-center">
-                <Text className="text-xl font-bold text-purple-600">
-                  {workouts.filter(w => {
-                    const thisWeek = new Date();
-                    thisWeek.setDate(thisWeek.getDate() - 7);
-                    const workoutDate = new Date(w.date);
-                    return workoutDate > thisWeek && w.completed;
-                  }).length}
-                </Text>
-                <Text className="text-sm text-gray-600">Esta semana</Text>
-              </VStack>
-            </HStack>
-          </Card>
+          <StatDisplay
+            stats={[
+              {
+                label: 'Completados',
+                value: workouts.filter(w => w.completed).length,
+                color: theme.colors.primary[600],
+              },
+              {
+                label: 'Hoy',
+                value: workouts.filter(w => {
+                  const today = new Date();
+                  const workoutDate = new Date(w.date);
+                  return workoutDate.toDateString() === today.toDateString() && w.completed;
+                }).length,
+                color: theme.colors.success,
+              },
+              {
+                label: 'Esta semana',
+                value: workouts.filter(w => {
+                  const thisWeek = new Date();
+                  thisWeek.setDate(thisWeek.getDate() - 7);
+                  const workoutDate = new Date(w.date);
+                  return workoutDate > thisWeek && w.completed;
+                }).length,
+                color: theme.colors.warning,
+              },
+            ]}
+            columns={3}
+          />
         )}
 
         {/* Workouts List */}
@@ -131,19 +106,22 @@ export const WorkoutListScreen = () => {
             />
           </VStack>
         ) : (
-          <Card className="p-8">
+          <Box className="bg-white rounded-xl p-8" style={theme.shadows.sm}>
             <VStack className="items-center gap-4">
-              <Text className="text-lg font-medium text-gray-600">
+              <View className="bg-gray-100 rounded-full p-6 mb-4">
+                <Text className="text-4xl">🏋️</Text>
+              </View>
+              <Text className="text-lg font-medium text-gray-900">
                 ¡Comienza tu primer entrenamiento!
               </Text>
-              <Text className="text-center text-gray-500 mb-4">
+              <Text className="text-center text-gray-600 mb-4">
                 Crea un nuevo entrenamiento para empezar a registrar tu progreso.
               </Text>
               <Button onPress={handleStartEmptyWorkout}>
                 <ButtonText>Crear Entrenamiento</ButtonText>
               </Button>
             </VStack>
-          </Card>
+          </Box>
         )}
       </ScrollView>
     </Box>
