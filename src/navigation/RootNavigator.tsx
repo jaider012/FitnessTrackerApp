@@ -7,9 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 // Import screens
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
+import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { WorkoutListScreen } from '../screens/workout/WorkoutListScreen';
 import { WorkoutDetailScreen } from '../screens/workout/WorkoutDetailScreen';
 import { ExercisesScreen } from '../screens/exercises/ExercisesScreen';
+import { ProgressScreen } from '../screens/progress/ProgressScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 
 // Type definitions
@@ -23,11 +25,13 @@ export type RootStackParamList = {
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
 };
 
 export type MainTabParamList = {
   Workouts: undefined;
   Exercises: undefined;
+  Progress: undefined;
   Profile: undefined;
 };
 
@@ -41,6 +45,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -57,6 +62,8 @@ function MainTabNavigator() {
             iconName = focused ? 'fitness' : 'fitness-outline';
           } else if (route.name === 'Exercises') {
             iconName = focused ? 'barbell' : 'barbell-outline';
+          } else if (route.name === 'Progress') {
+            iconName = focused ? 'stats-chart' : 'stats-chart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -72,6 +79,7 @@ function MainTabNavigator() {
     >
       <Tab.Screen name="Workouts" component={WorkoutListScreen} />
       <Tab.Screen name="Exercises" component={ExercisesScreen} />
+      <Tab.Screen name="Progress" component={ProgressScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

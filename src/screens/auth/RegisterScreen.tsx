@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigation } from '@react-navigation/native';
+import { Pressable } from 'react-native';
 import {
   Box,
   VStack,
@@ -11,12 +12,9 @@ import {
   InputField,
   Button,
   ButtonText,
-  Pressable,
-  FormControl,
-  FormControlError,
-  FormControlErrorText,
 } from '../../../components/ui';
 import { useAuthStore } from '../../store/authStore';
+import { RegisterForm } from '../../types';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nombre debe tener al menos 2 caracteres'),
@@ -28,33 +26,128 @@ const registerSchema = z.object({
   path: ["confirmPassword"],
 });
 
-type RegisterForm = z.infer<typeof registerSchema>;
-
 export const RegisterScreen = () => {
   const navigation = useNavigation();
-  const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterForm>({
+  const { control, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   });
-  const login = useAuthStore((s) => s.login);
+  const { register, isLoading } = useAuthStore();
 
   const onSubmit = async (data: RegisterForm) => {
     try {
-      // Simulación de registro con delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      login({ 
-        id: Math.random().toString(), 
-        email: data.email, 
-        name: data.name 
-      });
+      await register(data.name, data.email, data.password);
     } catch (error) {
       console.error('Register error:', error);
+      // TODO: Show error toast
     }
   };
 
   return (
-    <Box className="flex-1 items-center justify-center bg-white p-6">
-      <Text className="text-xl mb-4">Pantalla de Registro</Text>
-      <Text className="text-gray-500">(próximamente)</Text>
+    <Box className="flex-1 bg-white p-6 justify-center">
+      <VStack className="gap-6 items-center">
+        <Text className="text-3xl font-bold text-center mb-8">
+          Crear Cuenta
+        </Text>
+        
+        <VStack className="gap-4 w-full">
+          <Controller
+            control={control}
+            name="name"
+            render={({ field: { onChange, value, onBlur } }) => (
+              <Input variant="outline" size="lg">
+                <InputField
+                  placeholder="Nombre completo"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  autoCapitalize="words"
+                />
+              </Input>
+            )}
+          />
+          {errors.name && (
+            <Text className="text-red-500 text-sm">{errors.name.message}</Text>
+          )}
+
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value, onBlur } }) => (
+              <Input variant="outline" size="lg">
+                <InputField
+                  placeholder="Email"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </Input>
+            )}
+          />
+          {errors.email && (
+            <Text className="text-red-500 text-sm">{errors.email.message}</Text>
+          )}
+
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value, onBlur } }) => (
+              <Input variant="outline" size="lg">
+                <InputField
+                  placeholder="Contraseña"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry
+                />
+              </Input>
+            )}
+          />
+          {errors.password && (
+            <Text className="text-red-500 text-sm">{errors.password.message}</Text>
+          )}
+
+          <Controller
+            control={control}
+            name="confirmPassword"
+            render={({ field: { onChange, value, onBlur } }) => (
+              <Input variant="outline" size="lg">
+                <InputField
+                  placeholder="Confirmar contraseña"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry
+                />
+              </Input>
+            )}
+          />
+          {errors.confirmPassword && (
+            <Text className="text-red-500 text-sm">{errors.confirmPassword.message}</Text>
+          )}
+
+          <Button 
+            size="lg" 
+            onPress={handleSubmit(onSubmit)}
+            disabled={isLoading}
+            className="mt-4"
+          >
+            <ButtonText>
+              {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
+            </ButtonText>
+          </Button>
+
+          <Pressable 
+            onPress={() => navigation.navigate('Login' as never)}
+            className="items-center mt-6"
+          >
+            <Text className="text-blue-500">
+              ¿Ya tienes cuenta? Inicia sesión aquí
+            </Text>
+          </Pressable>
+        </VStack>
+      </VStack>
     </Box>
   );
 }; 

@@ -1,46 +1,44 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FlatList, ScrollView, Pressable } from 'react-native';
-import { Box, VStack, HStack, Text, Button, ButtonText } from '../../../components/ui/';
+import { Box, VStack, HStack, Text, Button, ButtonText, Card } from '../../../components/ui/';
 import { useWorkoutStore, Workout } from '../../store/workoutStore';
 import { useNavigation } from '@react-navigation/native';
-
-// Rutinas predefinidas basadas en las imágenes
-const PREDEFINED_ROUTINES = [
-  {
-    id: 'push',
-    name: 'Push',
-    description: 'Warm Up, Bench Press (Barbell), Shoulder Press (Dumbbell), Butterfly (Pec Deck),...',
-    color: '$blue500'
-  },
-  {
-    id: 'pull', 
-    name: 'Pull',
-    description: 'Warm Up, Lat Pulldown (Cable), Seated Cable Row - V Grip (Cable), Shrug (Dum...)',
-    color: '$blue500'
-  },
-  {
-    id: 'legs',
-    name: 'Legs',
-    description: 'Warm Up, Squat (Barbell), Romanian Deadlift, Leg Press, Calf Raises...',
-    color: '$blue500'
-  }
-];
+import { createSampleWorkouts } from '../../utils/sampleData';
+import { format, parseISO } from 'date-fns';
+import uuid from 'react-native-uuid';
 
 export const WorkoutListScreen = () => {
   const navigation = useNavigation<any>();
-  const { workouts, startWorkout } = useWorkoutStore();
+  const { workouts, addWorkout } = useWorkoutStore();
+
+  // Load sample data if no workouts exist
+  useEffect(() => {
+    if (workouts.length === 0) {
+      const sampleWorkouts = createSampleWorkouts();
+      sampleWorkouts.forEach(workout => addWorkout(workout));
+    }
+  }, [workouts.length, addWorkout]);
 
   const handleStartEmptyWorkout = () => {
     const newWorkout: Workout = {
-      id: Date.now().toString(),
+      id: uuid.v4() as string,
       name: 'Nuevo Entrenamiento',
       date: new Date().toISOString(),
       exercises: [],
       duration: 0,
       completed: false,
     };
-    startWorkout(newWorkout);
+    addWorkout(newWorkout);
     navigation.navigate('WorkoutDetail', { workoutId: newWorkout.id });
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   };
 
   const renderWorkout = ({ item }: { item: Workout }) => (
@@ -48,66 +46,104 @@ export const WorkoutListScreen = () => {
       onPress={() => navigation.navigate('WorkoutDetail', { workoutId: item.id })}
       className="mb-3"
     >
-      <Box className="bg-gray-50 p-4 rounded-lg">
-        <HStack className="justify-between items-center">
-          <VStack className="flex-1">
+      <Card className="p-4">
+        <VStack className="gap-2">
+          <HStack className="justify-between items-center">
             <Text className="font-bold text-lg">{item.name}</Text>
+            {item.completed && (
+              <Text className="text-green-600 text-sm">✓ Completado</Text>
+            )}
+          </HStack>
+          <HStack className="justify-between items-center">
             <Text className="text-sm text-gray-600">
-              {item.exercises.length} ejercicios • {Math.floor(item.duration / 60)}min
+              {item.exercises.length} ejercicios
+              {item.duration > 0 && ` • ${formatDuration(item.duration)}`}
             </Text>
-          </VStack>
-          <Text className="text-sm text-gray-500">
-            {new Date(item.date).toLocaleDateString()}
-          </Text>
-        </HStack>
-      </Box>
+            <Text className="text-sm text-gray-500">
+              {format(parseISO(item.date), 'dd/MM/yyyy')}
+            </Text>
+          </HStack>
+          {item.notes && (
+            <Text className="text-sm text-gray-500 italic" numberOfLines={1}>
+              {item.notes}
+            </Text>
+          )}
+        </VStack>
+      </Card>
     </Pressable>
   );
 
   return (
-    <Box className="flex-1 bg-white">
+    <Box className="flex-1 bg-gray-50">
       <ScrollView className="p-4">
         {/* Header */}
         <HStack className="justify-between items-center mb-6">
-          <Text className="text-2xl font-bold">Workout</Text>
-          <Text className="text-2xl">📁</Text>
+          <Text className="text-2xl font-bold">Entrenamientos</Text>
+          <Button size="sm" onPress={handleStartEmptyWorkout}>
+            <ButtonText>+ Nuevo</ButtonText>
+          </Button>
         </HStack>
 
-        {/* Quick Start Section */}
-        <VStack className="gap-4 mb-6">
-          <Text className="text-lg font-bold">Quick Start</Text>
-          <Button 
-            variant="outline" 
-            size="lg" 
-            onPress={handleStartEmptyWorkout}
-          >
-            <ButtonText>➕ Start Empty Workout</ButtonText>
-          </Button>
-        </VStack>
-
-        {/* Recent Workouts */}
+        {/* Quick Stats */}
         {workouts.length > 0 && (
+          <Card className="p-4 mb-6">
+            <HStack className="justify-between">
+              <VStack className="items-center">
+                <Text className="text-xl font-bold text-blue-600">
+                  {workouts.filter(w => w.completed).length}
+                </Text>
+                <Text className="text-sm text-gray-600">Completados</Text>
+              </VStack>
+              <VStack className="items-center">
+                <Text className="text-xl font-bold text-green-600">
+                  {workouts.filter(w => {
+                    const today = new Date();
+                    const workoutDate = new Date(w.date);
+                    return workoutDate.toDateString() === today.toDateString() && w.completed;
+                  }).length}
+                </Text>
+                <Text className="text-sm text-gray-600">Hoy</Text>
+              </VStack>
+              <VStack className="items-center">
+                <Text className="text-xl font-bold text-purple-600">
+                  {workouts.filter(w => {
+                    const thisWeek = new Date();
+                    thisWeek.setDate(thisWeek.getDate() - 7);
+                    const workoutDate = new Date(w.date);
+                    return workoutDate > thisWeek && w.completed;
+                  }).length}
+                </Text>
+                <Text className="text-sm text-gray-600">Esta semana</Text>
+              </VStack>
+            </HStack>
+          </Card>
+        )}
+
+        {/* Workouts List */}
+        {workouts.length > 0 ? (
           <VStack className="gap-4">
-            <Text className="text-lg font-bold">Entrenamientos Recientes</Text>
+            <Text className="text-lg font-bold">Todos los entrenamientos</Text>
             <FlatList
-              data={workouts.slice(0, 5)}
+              data={workouts}
               keyExtractor={(item) => item.id}
               renderItem={renderWorkout}
               scrollEnabled={false}
             />
           </VStack>
-        )}
-
-        {/* Empty State */}
-        {workouts.length === 0 && (
-          <Box className="items-center mt-10">
-            <Text className="text-lg text-gray-500 text-center mb-4">
-              ¡Empieza tu primer entrenamiento!
-            </Text>
-            <Text className="text-sm text-gray-400 text-center">
-              Toca "Start Empty Workout" para comenzar
-            </Text>
-          </Box>
+        ) : (
+          <Card className="p-8">
+            <VStack className="items-center gap-4">
+              <Text className="text-lg font-medium text-gray-600">
+                ¡Comienza tu primer entrenamiento!
+              </Text>
+              <Text className="text-center text-gray-500 mb-4">
+                Crea un nuevo entrenamiento para empezar a registrar tu progreso.
+              </Text>
+              <Button onPress={handleStartEmptyWorkout}>
+                <ButtonText>Crear Entrenamiento</ButtonText>
+              </Button>
+            </VStack>
+          </Card>
         )}
       </ScrollView>
     </Box>

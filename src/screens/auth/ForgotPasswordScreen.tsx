@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,34 +14,64 @@ import {
   ButtonText,
 } from '../../../components/ui/';
 import { useAuthStore } from '../../store/authStore';
-import { LoginForm } from '../../types';
+import { ForgotPasswordForm } from '../../types';
 
-const loginSchema = z.object({
+const forgotPasswordSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
-export const LoginScreen = () => {
+export const ForgotPasswordScreen = () => {
   const navigation = useNavigation();
-  const { control, handleSubmit, formState: { errors } } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  const [emailSent, setEmailSent] = useState(false);
+  const { control, handleSubmit, formState: { errors } } = useForm<ForgotPasswordForm>({
+    resolver: zodResolver(forgotPasswordSchema),
   });
-  const { login, isLoading } = useAuthStore();
+  const { forgotPassword, isLoading } = useAuthStore();
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: ForgotPasswordForm) => {
     try {
-      await login(data.email, data.password);
+      await forgotPassword(data.email);
+      setEmailSent(true);
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Forgot password error:', error);
       // TODO: Show error toast
     }
   };
+
+  if (emailSent) {
+    return (
+      <Box className="flex-1 bg-white p-6 justify-center">
+        <VStack className="gap-6 items-center">
+          <Text className="text-3xl font-bold text-center mb-8">
+            Email Enviado
+          </Text>
+          
+          <Text className="text-center text-gray-600 mb-8">
+            Hemos enviado un enlace de recuperación a tu email. 
+            Revisa tu bandeja de entrada y sigue las instrucciones.
+          </Text>
+          
+          <Button 
+            size="lg" 
+            onPress={() => navigation.navigate('Login' as never)}
+            className="w-full"
+          >
+            <ButtonText>Volver al Login</ButtonText>
+          </Button>
+        </VStack>
+      </Box>
+    );
+  }
 
   return (
     <Box className="flex-1 bg-white p-6 justify-center">
       <VStack className="gap-6 items-center">
         <Text className="text-3xl font-bold text-center mb-8">
-          Fitness Tracker
+          Recuperar Contraseña
+        </Text>
+        
+        <Text className="text-center text-gray-600 mb-8">
+          Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
         </Text>
         
         <VStack className="gap-4 w-full">
@@ -65,25 +95,6 @@ export const LoginScreen = () => {
             <Text className="text-red-500 text-sm">{errors.email.message}</Text>
           )}
 
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, value, onBlur } }) => (
-              <Input variant="outline" size="lg">
-                <InputField
-                  placeholder="Contraseña"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  secureTextEntry
-                />
-              </Input>
-            )}
-          />
-          {errors.password && (
-            <Text className="text-red-500 text-sm">{errors.password.message}</Text>
-          )}
-
           <Button 
             size="lg" 
             onPress={handleSubmit(onSubmit)}
@@ -91,25 +102,16 @@ export const LoginScreen = () => {
             className="mt-4"
           >
             <ButtonText>
-              {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
+              {isLoading ? 'Enviando...' : 'Enviar Enlace'}
             </ButtonText>
           </Button>
 
           <Pressable 
-            onPress={() => navigation.navigate('ForgotPassword' as never)}
-            className="items-center mt-4"
-          >
-            <Text className="text-blue-500 text-sm">
-              ¿Olvidaste tu contraseña?
-            </Text>
-          </Pressable>
-
-          <Pressable 
-            onPress={() => navigation.navigate('Register' as never)}
+            onPress={() => navigation.navigate('Login' as never)}
             className="items-center mt-6"
           >
             <Text className="text-blue-500">
-              ¿No tienes cuenta? Regístrate aquí
+              Volver al Login
             </Text>
           </Pressable>
         </VStack>
